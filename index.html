@@ -3,95 +3,79 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Small Ball Enthusiasts - Week 1</title>
+<title>Small Ball Enthusiasts Report</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500&display=swap');
   body { font-family: 'DM Sans', sans-serif; background: #f7f4ef; color: #1a1a1a; padding: 20px; }
   .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; border: 1.5px solid #e0dbd0; }
-  h1 { font-family: 'Playfair Display', serif; color: #1a3d2b; margin-bottom: 10px; }
-  input { width: 100%; padding: 12px; margin: 10px 0 20px; border: 1.5px solid #e0dbd0; border-radius: 8px; }
-  button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-  .error-msg { display: none; color: #c0392b; background: #fdecea; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #f5c6c3; font-size: 13px; }
-  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+  h1 { font-family: 'Playfair Display', serif; color: #1a3d2b; }
+  textarea { width: 100%; height: 100px; padding: 12px; margin: 10px 0; border: 1.5px solid #e0dbd0; border-radius: 8px; font-family: monospace; font-size: 12px; }
+  button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
   #report-view { display: none; }
-  .badge { background: #e8f5ee; color: #1a3d2b; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .step { font-size: 14px; color: #666; margin-bottom: 10px; }
+  a { color: #2d6a4a; font-weight: 600; }
 </style>
 </head>
 <body>
 
 <div class="container" id="setup-view">
   <h1>Friday Report.</h1>
-  <p style="color:#666; margin-bottom:20px;">Small Ball Enthusiasts | 2026 Season</p>
+  <p style="color:#666; margin-bottom:20px;">Manual Data Bridge (Bypasses CORS Errors)</p>
   
-  <label style="font-size:11px; font-weight:700; color:#888; letter-spacing:1px;">LEAGUE ID</label>
-  <input type="text" id="lId" placeholder="Enter ID (e.g. 12345678)">
+  <div class="step">1. Open your league data in a new tab: <br>
+    <a id="data-link" target="_blank">Click here to open ESPN Data</a>
+  </div>
   
-  <div id="err" class="error-msg"></div>
-  <button onclick="build()">Generate Week 1 Report</button>
+  <div class="step">2. Select all the text on that page (Ctrl+A), Copy it (Ctrl+C), and paste it below:</div>
+  <textarea id="raw-data" placeholder="Paste the text from the link here..."></textarea>
+
+  <button onclick="processManual()">Generate Report →</button>
 </div>
 
 <div class="container" id="report-view">
-  <span class="badge">SEASON OPENER</span>
   <h1 id="header-week">Week 1 Summary</h1>
   <div id="narrative" style="margin: 20px 0; font-style: italic; color: #2d6a4a; font-size: 18px;"></div>
-  
-  <div style="font-weight:700; margin-bottom:10px; border-bottom: 2px solid #1a3d2b;">LIVE SCOREBOARD</div>
   <div id="matchup-list"></div>
-  
-  <button style="margin-top:30px; background:#666;" onclick="location.reload()">Reset</button>
+  <button style="margin-top:20px; background:#666;" onclick="location.reload()">Reset</button>
 </div>
 
 <script>
-async function build() {
-  const id = document.getElementById('lId').value.trim();
-  const yr = "2026";
-  const eBox = document.getElementById('err');
-  eBox.style.display = 'none';
+  // Fill in your specific league ID here so the link works automatically
+  const LEAGUE_ID = "09053201"; 
+  const YEAR = "2026";
+  document.getElementById('data-link').href = `https://fantasy.espn.com/apis/v3/games/flb/seasons/${YEAR}/segments/0/leagues/${LEAGUE_ID}?view=mTeam,mMatchupScore`;
 
-  if(!id) { eBox.textContent = "Please enter your League ID."; eBox.style.display = 'block'; return; }
+  function processManual() {
+    try {
+      const raw = document.getElementById('raw-data').value;
+      const data = JSON.parse(raw);
+      
+      const teams = {};
+      data.teams.forEach(t => { teams[t.id] = t.name; });
 
-  try {
-    const espn = `https://fantasy.espn.com/apis/v3/games/flb/seasons/${yr}/segments/0/leagues/${id}?view=mTeam,mMatchupScore,mStandings`;
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(espn)}`;
-    
-    const r = await fetch(proxy);
-    const j = await r.json();
-    let data = typeof j.contents === 'string' ? JSON.parse(j.contents) : j.contents;
+      const week = data.status.currentMatchupPeriod || 1;
+      const mHtml = data.schedule
+        .filter(s => s.matchupPeriodId == week && s.away)
+        .map(m => {
+          const hS = m.home.totalPoints.toFixed(1);
+          const aS = m.away.totalPoints.toFixed(1);
+          return `<div class="matchup-card">
+            <span><strong>${teams[m.home.teamId]}</strong>: ${hS}</span>
+            <span><strong>${teams[m.away.teamId]}</strong>: ${aS}</span>
+          </div>`;
+        }).join('');
 
-    if(!data || !data.teams) throw new Error("League data not found. Is it Public?");
-
-    const teams = {};
-    data.teams.forEach(t => { teams[t.id] = t.name; });
-
-    const week = data.status.currentMatchupPeriod || 1;
-    
-    // SAFE DATA PROCESSING: Handles cases where scores are 0 or null
-    const mHtml = data.schedule
-      .filter(s => s.matchupPeriodId == week && s.away)
-      .map(m => {
-        const hScore = (m.home && m.home.totalPoints) ? m.home.totalPoints.toFixed(1) : "0.0";
-        const aScore = (m.away && m.away.totalPoints) ? m.away.totalPoints.toFixed(1) : "0.0";
-        return `
-          <div class="matchup-card">
-            <span><strong>${teams[m.home.teamId]}</strong></span>
-            <span style="font-family:monospace; background:#f0f0f0; padding:2px 6px;">${hScore} - ${aScore}</span>
-            <span style="text-align:right"><strong>${teams[m.away.teamId]}</strong></span>
-          </div>
-        `;
-      }).join('');
-
-    document.getElementById('setup-view').style.display = 'none';
-    document.getElementById('report-view').style.display = 'block';
-    document.getElementById('header-week').textContent = `Week ${week} Summary`;
-    document.getElementById('narrative').textContent = "The 2026 season is officially underway for the Small Ball Enthusiasts. The dust is still settling on the diamond.";
-    document.getElementById('matchup-list').innerHTML = mHtml || "Matchups are being finalized by ESPN. Check back after today's first pitch!";
-
-  } catch (err) {
-    console.error(err);
-    eBox.textContent = "ESPN Error: " + err.message;
-    eBox.style.display = 'block';
+      document.getElementById('setup-view').style.display = 'none';
+      document.getElementById('report-view').style.display = 'block';
+      document.getElementById('header-week').textContent = `Week ${week} Summary`;
+      document.getElementById('narrative').textContent = "The stats are in for the Small Ball Enthusiasts. Here's how the opening salvos look:";
+      document.getElementById('matchup-list').innerHTML = mHtml;
+      
+    } catch (e) {
+      alert("Error: Make sure you copied the ENTIRE page from the link. " + e.message);
+    }
   }
-}
 </script>
 </body>
 </html>
