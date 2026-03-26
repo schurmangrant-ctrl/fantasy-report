@@ -3,34 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Small Ball Enthusiasts Report</title>
+<title>Small Ball Enthusiasts - Friday Report</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500&display=swap');
   body { font-family: 'DM Sans', sans-serif; background: #f7f4ef; color: #1a1a1a; padding: 20px; }
   .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; border: 1.5px solid #e0dbd0; }
   h1 { font-family: 'Playfair Display', serif; color: #1a3d2b; }
-  textarea { width: 100%; height: 100px; padding: 12px; margin: 10px 0; border: 1.5px solid #e0dbd0; border-radius: 8px; font-family: monospace; font-size: 12px; }
-  button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; }
-  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+  textarea { width: 100%; height: 150px; padding: 12px; margin: 10px 0; border: 1.5px solid #e0dbd0; border-radius: 8px; font-size: 14px; }
+  button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
   #report-view { display: none; }
-  .step { font-size: 14px; color: #666; margin-bottom: 10px; }
-  a { color: #2d6a4a; font-weight: 600; }
+  .score-badge { background: #f0f0f0; padding: 4px 10px; border-radius: 4px; font-family: monospace; font-weight: bold; }
 </style>
 </head>
 <body>
 
 <div class="container" id="setup-view">
   <h1>Friday Report.</h1>
-  <p style="color:#666; margin-bottom:20px;">Manual Data Bridge (Bypasses CORS Errors)</p>
+  <p style="color:#666; margin-bottom:20px;">The "Copy-Paste" Method (No Tech Issues)</p>
   
-  <div class="step">1. Open your league data in a new tab: <br>
-    <a id="data-link" target="_blank">Click here to open ESPN Data</a>
-  </div>
+  <p style="font-size: 14px; color: #444;">1. Open your <strong>ESPN Scoreboard</strong> page.<br>
+  2. Use your mouse to <strong>highlight all the matchups</strong> (names and scores).<br>
+  3. Copy (Ctrl+C) and paste that text below:</p>
   
-  <div class="step">2. Select all the text on that page (Ctrl+A), Copy it (Ctrl+C), and paste it below:</div>
-  <textarea id="raw-data" placeholder="Paste the text from the link here..."></textarea>
-
-  <button onclick="processManual()">Generate Report →</button>
+  <textarea id="raw-text" placeholder="Paste your scoreboard text here..."></textarea>
+  <button onclick="processText()">Generate Week 1 Report →</button>
 </div>
 
 <div class="container" id="report-view">
@@ -41,40 +38,37 @@
 </div>
 
 <script>
-  // Fill in your specific league ID here so the link works automatically
-  const LEAGUE_ID = "09053201"; 
-  const YEAR = "2026";
-  document.getElementById('data-link').href = `https://fantasy.espn.com/apis/v3/games/flb/seasons/${YEAR}/segments/0/leagues/${LEAGUE_ID}?view=mTeam,mMatchupScore`;
-
-  function processManual() {
-    try {
-      const raw = document.getElementById('raw-data').value;
-      const data = JSON.parse(raw);
-      
-      const teams = {};
-      data.teams.forEach(t => { teams[t.id] = t.name; });
-
-      const week = data.status.currentMatchupPeriod || 1;
-      const mHtml = data.schedule
-        .filter(s => s.matchupPeriodId == week && s.away)
-        .map(m => {
-          const hS = m.home.totalPoints.toFixed(1);
-          const aS = m.away.totalPoints.toFixed(1);
-          return `<div class="matchup-card">
-            <span><strong>${teams[m.home.teamId]}</strong>: ${hS}</span>
-            <span><strong>${teams[m.away.teamId]}</strong>: ${aS}</span>
-          </div>`;
-        }).join('');
-
-      document.getElementById('setup-view').style.display = 'none';
-      document.getElementById('report-view').style.display = 'block';
-      document.getElementById('header-week').textContent = `Week ${week} Summary`;
-      document.getElementById('narrative').textContent = "The stats are in for the Small Ball Enthusiasts. Here's how the opening salvos look:";
-      document.getElementById('matchup-list').innerHTML = mHtml;
-      
-    } catch (e) {
-      alert("Error: Make sure you copied the ENTIRE page from the link. " + e.message);
+  function processText() {
+    const text = document.getElementById('raw-text').value;
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // This is a "Fuzzy Matcher" that looks for numbers (scores) near team names
+    let matchups = [];
+    for(let i = 0; i < lines.length; i++) {
+        // If we see "vs", the line above is Team A and below is Team B
+        if(lines[i].toLowerCase() === 'vs' || lines[i].includes(' - ')) {
+            let team1 = lines[i-1] || "Team 1";
+            let team2 = lines[i+1] || "Team 2";
+            matchups.push({ t1: team1, t2: team2 });
+        }
     }
+
+    if(matchups.length === 0) {
+        alert("I couldn't find the matchups. Try highlighting a larger chunk of the page!");
+        return;
+    }
+
+    document.getElementById('setup-view').style.display = 'none';
+    document.getElementById('report-view').style.display = 'block';
+    document.getElementById('narrative').textContent = "The Small Ball Enthusiasts have officially taken the field. Week 1 is in full swing.";
+    
+    document.getElementById('matchup-list').innerHTML = matchups.map(m => `
+        <div class="matchup-card">
+            <span><strong>${m.t1}</strong></span>
+            <span class="score-badge">LIVE</span>
+            <span style="text-align:right"><strong>${m.t2}</strong></span>
+        </div>
+    `).join('');
   }
 </script>
 </body>
