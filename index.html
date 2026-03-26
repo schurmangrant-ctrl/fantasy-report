@@ -3,116 +3,87 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Friday Report - Small Ball Enthusiasts</title>
+<title>Small Ball Enthusiasts Report</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500&display=swap');
-  body { font-family: 'DM Sans', sans-serif; background: #f7f4ef; color: #1a1a1a; padding: 20px; line-height: 1.6; }
-  .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; border: 1.5px solid #e0dbd0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-  h1 { font-family: 'Playfair Display', serif; font-size: 32px; margin-bottom: 10px; color: #1a3d2b; }
-  label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; color: #666; }
-  input { width: 100%; padding: 12px; margin-bottom: 20px; border: 1.5px solid #e0dbd0; border-radius: 8px; font-size: 16px; }
-  button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: 600; }
-  #report-box { display: none; margin-top: 30px; }
-  .error { display: none; color: #c0392b; background: #fdecea; padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 14px; border: 1px solid #f5c6c3; }
-  .matchup { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #eee; }
-  .standing-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f9f9f9; }
+  body { font-family: 'DM Sans', sans-serif; background: #f7f4ef; color: #1a1a1a; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; border: 1.5px solid #e0dbd0; }
+  h1 { font-family: 'Playfair Display', serif; color: #1a3d2b; }
+  input { width: 100%; padding: 12px; margin: 10px 0 20px; border: 1.5px solid #e0dbd0; border-radius: 8px; }
+  button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .error-msg { display: none; color: #c0392b; background: #fdecea; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #f5c6c3; font-size: 13px; }
+  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+  #report-view { display: none; }
 </style>
 </head>
 <body>
 
-<div class="container" id="setup">
+<div class="container" id="setup-view">
   <h1>Friday Report.</h1>
-  <p style="color: #666; margin-bottom: 30px;">Generate your weekly league summary.</p>
+  <p style="color:#666; margin-bottom:20px;">Small Ball Enthusiasts Weekly Breakdown</p>
   
-  <label>ESPN League ID</label>
-  <input type="text" id="leagueId" placeholder="Found in your ESPN URL">
+  <label style="font-size:12px; font-weight:600; color:#666;">LEAGUE ID</label>
+  <input type="text" id="lId" placeholder="Enter ID from URL">
   
-  <label>Season Year</label>
-  <input type="number" id="year" value="2026">
+  <label style="font-size:12px; font-weight:600; color:#666;">YEAR</label>
+  <input type="number" id="lYr" value="2026">
 
-  <div id="error-box" class="error"></div>
-  <button onclick="runReport()">Generate Report →</button>
+  <div id="err" class="error-msg"></div>
+  <button onclick="build()">Generate Report</button>
 </div>
 
-<div class="container" id="report-box">
-  <h1 id="r-title">Weekly Summary</h1>
-  <div id="narrative" style="font-style: italic; color: #2d6a4a; margin-bottom: 25px; font-size: 18px;"></div>
-  
-  <h3 style="border-bottom: 2px solid #1a3d2b; padding-bottom: 5px; margin-top: 20px;">Matchups</h3>
-  <div id="matchups"></div>
-  
-  <h3 style="border-bottom: 2px solid #1a3d2b; padding-bottom: 5px; margin-top:30px;">Standings</h3>
-  <div id="standings"></div>
-  
-  <button style="margin-top: 30px; background: #666;" onclick="location.reload()">Reset</button>
+<div class="container" id="report-view">
+  <h1 id="header-week">Week X Summary</h1>
+  <div id="narrative" style="margin: 20px 0; font-style: italic; color: #2d6a4a;"></div>
+  <div id="matchup-list"></div>
+  <button style="margin-top:20px; background:#666;" onclick="location.reload()">Back</button>
 </div>
 
 <script>
-async function runReport() {
-  const id = document.getElementById('leagueId').value.trim();
-  const yr = document.getElementById('year').value;
-  const errBox = document.getElementById('error-box');
-  
-  errBox.style.display = 'none';
-  
-  if(!id) { showErr("Please enter a League ID."); return; }
+async function build() {
+  const id = document.getElementById('lId').value.trim();
+  const yr = document.getElementById('lYr').value;
+  const eBox = document.getElementById('err');
+  eBox.style.display = 'none';
+
+  if(!id) { eBox.textContent = "Please enter your League ID."; eBox.style.display = 'block'; return; }
 
   try {
-    // API URL
     const espn = `https://fantasy.espn.com/apis/v3/games/flb/seasons/${yr}/segments/0/leagues/${id}?view=mTeam,mMatchupScore,mStandings`;
     const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(espn)}`;
     
-    const resp = await fetch(proxy);
-    const json = await resp.json();
-    const data = JSON.parse(json.contents);
+    const r = await fetch(proxy);
+    const j = await r.json();
+    
+    // THE FIX: Check if the proxy returned a string or an object
+    let data = typeof j.contents === 'string' ? JSON.parse(j.contents) : j.contents;
 
-    if(!data.teams) throw new Error("No team data found. Check your ID.");
+    if(!data || !data.teams) throw new Error("Could not find teams. Check League ID.");
 
-    // Process Teams
     const teams = {};
-    data.teams.forEach(t => {
-      teams[t.id] = { name: t.name, w: t.record.overall.wins, l: t.record.overall.losses };
-    });
+    data.teams.forEach(t => { teams[t.id] = t.name; });
 
-    // Process Current Matchups
-    const curWeek = data.status.currentMatchupPeriod;
-    const matchupsHtml = data.schedule
-      .filter(s => s.matchupPeriodId == curWeek && s.away)
+    const week = data.status.currentMatchupPeriod;
+    const mHtml = data.schedule
+      .filter(s => s.matchupPeriodId == week && s.away)
       .map(m => `
-        <div class="matchup">
-          <span><strong>${teams[m.home.teamId].name}</strong> (${m.home.totalPoints.toFixed(1)})</span>
-          <span style="color:#999">vs</span>
-          <span style="text-align:right"><strong>${teams[m.away.teamId].name}</strong> (${m.away.totalPoints.toFixed(1)})</span>
+        <div class="matchup-card">
+          <span><strong>${teams[m.home.teamId]}</strong>: ${m.home.totalPoints.toFixed(1)}</span>
+          <span><strong>${teams[m.away.teamId]}</strong>: ${m.away.totalPoints.toFixed(1)}</span>
         </div>
       `).join('');
 
-    // Process Standings
-    const standingsHtml = Object.values(teams)
-      .sort((a,b) => b.w - a.w)
-      .map((t, i) => `
-        <div class="standing-row">
-          <span>${i+1}. ${t.name}</span>
-          <span>${t.w} - ${t.l}</span>
-        </div>
-      `).join('');
+    document.getElementById('setup-view').style.display = 'none';
+    document.getElementById('report-view').style.display = 'block';
+    document.getElementById('header-week').textContent = `Week ${week} Summary`;
+    document.getElementById('narrative').textContent = "Another week of Small Ball Enthusiasts action. Here's the damage:";
+    document.getElementById('matchup-list').innerHTML = mHtml || "No stats found for this week yet.";
 
-    // Render
-    document.getElementById('setup').style.display = 'none';
-    document.getElementById('report-box').style.display = 'block';
-    document.getElementById('r-title').textContent = `Week ${curWeek} Summary`;
-    document.getElementById('narrative').textContent = "The bats are cold, the arms are tired, and someone is inevitably complaining about a trade. Here is where the league stands.";
-    document.getElementById('matchups').innerHTML = matchupsHtml || "No active matchups found for this week.";
-    document.getElementById('standings').innerHTML = standingsHtml;
-
-  } catch (e) {
-    showErr("Error: " + e.message + ". Ensure your league is set to PUBLIC in ESPN Settings.");
+  } catch (err) {
+    console.error(err);
+    eBox.textContent = "Error: " + err.message + ". Double check your League ID.";
+    eBox.style.display = 'block';
   }
-}
-
-function showErr(msg) {
-  const b = document.getElementById('error-box');
-  b.textContent = msg;
-  b.style.display = 'block';
 }
 </script>
 </body>
