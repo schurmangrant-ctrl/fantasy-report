@@ -1,0 +1,24 @@
+name: Fetch ESPN Data
+on:
+  schedule:
+    - cron: '0 * * * *' # Runs every hour
+  workflow_dispatch: # Allows you to run it manually for testing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Fetch Data
+        run: |
+          curl "https://fantasy.espn.com/apis/v3/games/flb/seasons/2026/segments/0/leagues/09053201?view=mTeam,mMatchupScore,mStandings" -o data.json
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add data.json
+          git commit -m "Auto-update league data" || exit 0
+          git push
