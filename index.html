@@ -3,46 +3,48 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Small Ball Enthusiasts Report</title>
+<title>Small Ball Enthusiasts - Week 1</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500&display=swap');
   body { font-family: 'DM Sans', sans-serif; background: #f7f4ef; color: #1a1a1a; padding: 20px; }
   .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; border: 1.5px solid #e0dbd0; }
-  h1 { font-family: 'Playfair Display', serif; color: #1a3d2b; }
+  h1 { font-family: 'Playfair Display', serif; color: #1a3d2b; margin-bottom: 10px; }
   input { width: 100%; padding: 12px; margin: 10px 0 20px; border: 1.5px solid #e0dbd0; border-radius: 8px; }
   button { width: 100%; padding: 15px; background: #1a3d2b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
   .error-msg { display: none; color: #c0392b; background: #fdecea; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #f5c6c3; font-size: 13px; }
-  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+  .matchup-card { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
   #report-view { display: none; }
+  .badge { background: #e8f5ee; color: #1a3d2b; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
 </style>
 </head>
 <body>
 
 <div class="container" id="setup-view">
   <h1>Friday Report.</h1>
-  <p style="color:#666; margin-bottom:20px;">Small Ball Enthusiasts Weekly Breakdown</p>
+  <p style="color:#666; margin-bottom:20px;">Small Ball Enthusiasts | 2026 Season</p>
   
-  <label style="font-size:12px; font-weight:600; color:#666;">LEAGUE ID</label>
-  <input type="text" id="lId" placeholder="Enter ID from URL">
+  <label style="font-size:11px; font-weight:700; color:#888; letter-spacing:1px;">LEAGUE ID</label>
+  <input type="text" id="lId" placeholder="Enter ID (e.g. 12345678)">
   
-  <label style="font-size:12px; font-weight:600; color:#666;">YEAR</label>
-  <input type="number" id="lYr" value="2026">
-
   <div id="err" class="error-msg"></div>
-  <button onclick="build()">Generate Report</button>
+  <button onclick="build()">Generate Week 1 Report</button>
 </div>
 
 <div class="container" id="report-view">
-  <h1 id="header-week">Week X Summary</h1>
-  <div id="narrative" style="margin: 20px 0; font-style: italic; color: #2d6a4a;"></div>
+  <span class="badge">SEASON OPENER</span>
+  <h1 id="header-week">Week 1 Summary</h1>
+  <div id="narrative" style="margin: 20px 0; font-style: italic; color: #2d6a4a; font-size: 18px;"></div>
+  
+  <div style="font-weight:700; margin-bottom:10px; border-bottom: 2px solid #1a3d2b;">LIVE SCOREBOARD</div>
   <div id="matchup-list"></div>
-  <button style="margin-top:20px; background:#666;" onclick="location.reload()">Back</button>
+  
+  <button style="margin-top:30px; background:#666;" onclick="location.reload()">Reset</button>
 </div>
 
 <script>
 async function build() {
   const id = document.getElementById('lId').value.trim();
-  const yr = document.getElementById('lYr').value;
+  const yr = "2026";
   const eBox = document.getElementById('err');
   eBox.style.display = 'none';
 
@@ -54,34 +56,39 @@ async function build() {
     
     const r = await fetch(proxy);
     const j = await r.json();
-    
-    // THE FIX: Check if the proxy returned a string or an object
     let data = typeof j.contents === 'string' ? JSON.parse(j.contents) : j.contents;
 
-    if(!data || !data.teams) throw new Error("Could not find teams. Check League ID.");
+    if(!data || !data.teams) throw new Error("League data not found. Is it Public?");
 
     const teams = {};
     data.teams.forEach(t => { teams[t.id] = t.name; });
 
-    const week = data.status.currentMatchupPeriod;
+    const week = data.status.currentMatchupPeriod || 1;
+    
+    // SAFE DATA PROCESSING: Handles cases where scores are 0 or null
     const mHtml = data.schedule
       .filter(s => s.matchupPeriodId == week && s.away)
-      .map(m => `
-        <div class="matchup-card">
-          <span><strong>${teams[m.home.teamId]}</strong>: ${m.home.totalPoints.toFixed(1)}</span>
-          <span><strong>${teams[m.away.teamId]}</strong>: ${m.away.totalPoints.toFixed(1)}</span>
-        </div>
-      `).join('');
+      .map(m => {
+        const hScore = (m.home && m.home.totalPoints) ? m.home.totalPoints.toFixed(1) : "0.0";
+        const aScore = (m.away && m.away.totalPoints) ? m.away.totalPoints.toFixed(1) : "0.0";
+        return `
+          <div class="matchup-card">
+            <span><strong>${teams[m.home.teamId]}</strong></span>
+            <span style="font-family:monospace; background:#f0f0f0; padding:2px 6px;">${hScore} - ${aScore}</span>
+            <span style="text-align:right"><strong>${teams[m.away.teamId]}</strong></span>
+          </div>
+        `;
+      }).join('');
 
     document.getElementById('setup-view').style.display = 'none';
     document.getElementById('report-view').style.display = 'block';
     document.getElementById('header-week').textContent = `Week ${week} Summary`;
-    document.getElementById('narrative').textContent = "Another week of Small Ball Enthusiasts action. Here's the damage:";
-    document.getElementById('matchup-list').innerHTML = mHtml || "No stats found for this week yet.";
+    document.getElementById('narrative').textContent = "The 2026 season is officially underway for the Small Ball Enthusiasts. The dust is still settling on the diamond.";
+    document.getElementById('matchup-list').innerHTML = mHtml || "Matchups are being finalized by ESPN. Check back after today's first pitch!";
 
   } catch (err) {
     console.error(err);
-    eBox.textContent = "Error: " + err.message + ". Double check your League ID.";
+    eBox.textContent = "ESPN Error: " + err.message;
     eBox.style.display = 'block';
   }
 }
