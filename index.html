@@ -627,20 +627,33 @@
 let reportData = null;
 
 // ─── ESPN API ─────────────────────────────────────────────────────────────────
-async function fetchESPN(leagueId, year, week) {
-  const weekParam = week ? `&scoringPeriodId=${week}&matchupPeriodId=${week}` : '';
-  const views = 'mTeam,mMatchupScore,mStandings,mRoster,mSettings';
-  const url = `https://fantasy.espn.com/apis/v3/games/flb/seasons/${year}/segments/0/leagues/${leagueId}?view=${views}${weekParam}`;
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    if (resp.status === 401 || resp.status === 403) {
-      throw new Error('League appears to be private or not found. Make sure your league is set to Public in ESPN settings.');
-    }
-    throw new Error(`ESPN API returned status ${resp.status}. Double-check your League ID.`);
-  }
-  return resp.json();
-}
+function generateNarrative(d) {
+  const highName = d.highScore.team;
+  const lowName = d.lowScore.team;
+  const blowoutWinner = d.biggestBlowout.homeWon ? d.biggestBlowout.homeTeam : d.biggestBlowout.awayTeam;
+  const blowoutLoser = d.biggestBlowout.homeWon ? d.biggestBlowout.awayTeam : d.biggestBlowout.homeTeam;
+  const bench = d.benchWaste[0];
 
+  const intros = [
+    `Another week of fantasy baseball is in the books, and some of you clearly spent more time at the concession stand than managing your roster.`,
+    `Welcome to the Week ${d.week} post-game report, where dreams go to die and batting averages go to disappear.`,
+    `Friday is here, which means it's time to look at the wreckage of your lineups and wonder where it all went wrong.`
+  ];
+
+  const roasts = [
+    `${highName} absolutely feasted this week with ${d.highScore.score} points—save some stats for the rest of us.`,
+    `On the other end of the spectrum, ${lowName} put up a measly ${d.lowScore.score}. I've seen more offensive production from a T-ball team.`,
+    `${blowoutWinner} didn't just beat ${blowoutLoser}, they sent them to the shadow realm with a ${d.biggestBlowout.margin}-point blowout.`,
+    `${d.closestMatch.margin} points. That was the gap between ${d.closestMatch.homeTeam} and ${d.closestMatch.awayTeam}. One extra base hit and we'd have a different story.`,
+    bench ? `Special shoutout to ${bench.team}, who left ${bench.benchPts} points on the bench. Those points don't count from the dugout, skip.` : ``
+  ];
+
+  const randomIntro = intros[Math.floor(Math.random() * intros.length)];
+  // Pick 3 random roasts from the list to keep it fresh
+  const shuffledRoasts = roasts.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+  return `${randomIntro} ${shuffledRoasts.join(' ')} See you next week for more inevitable disappointment.`;
+}
 // ─── MAIN GENERATE ─────────────────────────────────────────────────────────
 async function generateReport() {
   const leagueId = document.getElementById('league-id').value.trim();
